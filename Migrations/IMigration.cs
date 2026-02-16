@@ -1,6 +1,6 @@
 using Newtonsoft.Json.Linq;
 
-namespace DevKit.Saves.Migrations
+namespace DevKit.Newtonsoft
 {
     public interface IMigration
     {
