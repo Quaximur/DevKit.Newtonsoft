@@ -1,4 +1,6 @@
-namespace DevKit.Saves.Migrations
+using DevKit.Saves;
+
+namespace DevKit.Newtonsoft
 {
     public interface IMigrator
     {

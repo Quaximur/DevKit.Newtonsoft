@@ -1,32 +1,54 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using DevKit.Saves;
+using DevKit.Utils;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace DevKit.Saves.Migrations
+namespace DevKit.Newtonsoft
 {
     /// <summary>
-    /// Класс для миграции сохраненных данных.
-    /// Необходим для преобразования данных, сохранённых на устройстве,
-    /// в актуальную версию в случае обновления приложения.
+    /// For saved data migrating.
+    /// Necessary for converting data stored on the device
+    /// to the current version in the event of an app update.
     /// </summary>
     public class Migrator
     {
-        private readonly IOrderedEnumerable<IMigration> _migrations;
+        private readonly IMigration[] _migrations;
 
-        public Migrator()
+        public Migrator(params IMigration[] migrations)
         {
-            _migrations = new IMigration[]
-            {
-                // new MigrationV1ToV2(),
-            }.OrderBy(x => x.ToVersion);
+            _migrations = migrations == null ? 
+                Array.Empty<IMigration>() : 
+                migrations.OrderBy(x => x.ToVersion).ToArray();
+        }
+        
+        public Migrator(IEnumerable<IMigration> migrations)
+        {
+            _migrations = migrations == null ? 
+                Array.Empty<IMigration>() : 
+                migrations.OrderBy(x => x.ToVersion).ToArray();
         }
 
         public bool TryMigrateIfNecessary<T>(string loadedData, out T upToDateData) where T : SaveStateBase
         {
             var dataObject = JObject.Parse(loadedData);
-            int version = (int)dataObject[nameof(IVersioned.Version)];
+            
+            var versionToken = dataObject["_version"] ?? dataObject["Version"];
 
-            if (_migrations.Count() == 0 || version.CompareTo(_migrations.Last().ToVersion) >= 0)
+            if (versionToken == null)
+            {
+                FLogger.LogWarning("Could not find version field in loaded data.");
+                upToDateData = dataObject.ToObject<T>();
+                
+                return false;
+            }
+            
+            var version = versionToken.ToObject<int>();
+            FLogger.Log<Migrator>($"Current version: {version}");
+
+            if (_migrations.Length == 0 || version >= _migrations.Last().ToVersion)
             {
                 upToDateData = JsonConvert.DeserializeObject<T>(loadedData);
                 return false;
@@ -34,15 +56,16 @@ namespace DevKit.Saves.Migrations
 
             foreach (var migration in _migrations)
             {
-                if (version.CompareTo(migration.ToVersion) < 0)
+                if (version < migration.ToVersion)
                 {
                     dataObject = migration.Migrate(dataObject);
-                    dataObject[nameof(IVersioned.Version)] = migration.ToVersion.ToString();
                     version = migration.ToVersion;
+                    dataObject[versionToken.ToString()] = version.ToString();
                 }
             }
 
             upToDateData = dataObject.ToObject<T>();
+            
             return true;
         }
     }
