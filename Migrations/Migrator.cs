@@ -64,7 +64,7 @@ namespace DevKit.Newtonsoft
                 version = migration.ToVersion;
             }
 
-            dataObject[versionToken.ToString()] = version.ToString();
+            dataObject["Version"] = version.ToString();
             upToDateData = dataObject.ToObject<T>();
 
             return true;
